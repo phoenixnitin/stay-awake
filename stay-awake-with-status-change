@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Feb 20 11:31:20 2020
+
+@author: phoenixnitin
+"""
+
+
+import time
+
+import pyautogui as pgui
+import win32gui as w32
+import win32con
+import random
+from pynput import keyboard
+from datetime import datetime, timedelta
+
+pgui.FAILSAFE = False
+break_program = False
+status = True
+sleep_time_in_sec_away = random.randrange(8, 15, 1) * 60
+sleep_time_in_sec_available = 0.5 * 60
+
+skype_rect = []
+screen_max_limits = pgui.size()
+current_cursor_values = [int(screen_max_limits[0]/2), int(screen_max_limits[1]/2)]
+
+
+def win_enum_handler(hwnd, ctx):
+    global skype_rect
+    if w32.IsWindowVisible(hwnd):
+        if 'Skype for Business' == w32.GetWindowText(hwnd).strip():
+            w32.ShowWindow(hwnd, win32con.SW_RESTORE)
+            w32.SetForegroundWindow(hwnd)
+            skype_rect = w32.GetWindowRect(hwnd)
+
+
+def on_press(key):
+    global break_program
+    if key == keyboard.Key.end:
+        print('end pressed')
+        break_program = True
+        raise SystemExit
+
+
+def make_avaialable(left, top):
+    global status
+    pgui.moveTo(left + 90, top + 110, duration=1)
+    pgui.click()
+    pgui.moveTo(left + 90, top + 135, duration=1)
+    pgui.click()
+    status = True
+
+
+def make_away(left, top):
+    global status
+    pgui.moveTo(left + 90, top + 110, duration=1)
+    pgui.click()
+    pgui.moveTo(left + 90, top + 260, duration=1)
+    pgui.click()
+    status = False
+
+
+def sleep_with_movement(sleep_secs):
+    while sleep_secs > 0:
+        try:
+            time.sleep(60)
+            sleep_secs -= 60
+            if not break_program:
+                for i in range(0, 20):
+                    x_add = random.randrange(-50, 50, 5)
+                    y_add = random.randrange(-50, 50, 5)
+                    current_cursor_values[0] += x_add
+                    current_cursor_values[1] += y_add
+                    if current_cursor_values[0] < 0 or current_cursor_values[0] > screen_max_limits[0]:
+                        current_cursor_values[0] = int(screen_max_limits[0]/2)
+                    if current_cursor_values[1] < 0 or current_cursor_values[1] > screen_max_limits[1]:
+                        current_cursor_values[1] = int(screen_max_limits[1]/2)
+
+                    pgui.moveTo(current_cursor_values[0], current_cursor_values[1], duration=0.5)
+                pgui.press("shift")
+                print("Movement made at {}".format(datetime.now().time()))
+        except KeyboardInterrupt:
+            print('Execution Interrupted')
+            sleep_secs = -1
+            exit()
+
+
+def main():
+    global skype_rect, status, sleep_time_in_sec_available, sleep_time_in_sec_away
+    with keyboard.Listener(on_press=on_press) as listener:
+        while not break_program:
+            try:
+                w32.EnumWindows(win_enum_handler, None)
+                sleep_time_in_sec_away = random.randrange(8, 15, 1) * 60
+                sleep_time_in_sec_available = 0.5 * 60
+                if status:
+                    make_away(skype_rect[0], skype_rect[1])
+                    print('Next Status Change at : {}'.format(datetime.now() + timedelta(seconds=sleep_time_in_sec_away + 60 + 10)))
+                    sleep_with_movement(sleep_time_in_sec_away)
+                else:
+                    make_avaialable(skype_rect[0], skype_rect[1])
+                    print('Next Status Change at : {}'.format(datetime.now() + timedelta(seconds=sleep_time_in_sec_available + 60 + 10)))
+                    sleep_with_movement(sleep_time_in_sec_available)
+            except IndexError as ierr:
+                print('Please open skype and login before running')
+                raise SystemExit
+
+
+if __name__ == '__main__':
+    main()
